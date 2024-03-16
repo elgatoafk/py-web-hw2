@@ -4,8 +4,9 @@ from collections import UserDict
 """Tools for working with functions and callable objects"""
 from functools import wraps
 from dataclasses import dataclass
-from dateutil import relativedelta
+from dateutil.relativedelta import relativedelta
 import pickle
+from viewing import UserInterface, ConsoleView
 
 
 def name_validation(func):
@@ -362,47 +363,48 @@ def main():
     It creates an empty contacts dictionary and then enters a loop to interact with the user.
     The user can enter different commands, and the program responds accordingly."""
     book = AddressBook()
-    print("Welcome to the assistant bot!")
-    book = load_data()
+    user_interface = UserInterface(ConsoleView())
+    user_interface.display_info("Welcome to the assistant bot!")
+    book = load_data()    
     while True:
         user_input = input("Enter a command: ")
         command, *args = parse_input(user_input)
 
         match command:
             case "close" | "exit":
-                print("Goodbye!")
+                user_interface.display_info("Goodbye!")
                 save_data(book)
                 break
 
             case "hello":
-                print("How can I help you?")
+                user_interface.display_info("How can I help you?")
             case "add":
-                print(add_contact(args, book))
+                user_interface.display_info(add_contact(args, book))
 
             case "change":
                 # cmd in format change name old phone new phone (otherwise there no certainty which number we change for contact)
-                print(change_contact(args, book))
+                user_interface.display_info(change_contact(args, book))
 
             case "phone":
 
-                print(book.find(args[0]))
+                user_interface.display_info(book.find(args[0]))
             case "all":
                 if not book:
-                    print("There are no contacts, wanna add some?")
+                    user_interface.display_info("There are no contacts, wanna add some?")
                 else:
-                    print(book)
+                    user_interface.display_info(book)
             case "add-birthday":
-                print(add_birthday(args, book))
+                user_interface.display_info(add_birthday(args, book))
             case "show-birthday":
-                print(show_birthday(args, book))
+                user_interface.display_info(show_birthday(args, book))
             case "birthdays":
                 upcoming_dates = get_upcoming_birthdays(book)
                 for item in upcoming_dates:
-                    print(
-                        f"Name {item["name"]} should be congratulated on {item["congratulation_date"]}"
+                    user_interface.display_info(
+                        f"Name {item['name']} should be congratulated on {item['congratulation_date']}"
                     )
             case _:
-                print("Invalid command.")
+                user_interface.display_info("Invalid command.")
 
 
 if __name__ == "__main__":
