@@ -4,7 +4,6 @@ from collections import UserDict
 """Tools for working with functions and callable objects"""
 from functools import wraps
 from dataclasses import dataclass
-from dateutil.relativedelta import relativedelta
 import pickle
 from viewing import UserInterface, ConsoleView
 
@@ -16,7 +15,7 @@ def name_validation(func):
     :type func: callable
     :return: The decorated function.
     :rtype: callable
-    """  # name can only contain letters
+    """
 
     @wraps(func)
     def inner(self, entered_name: str):
@@ -34,7 +33,7 @@ def phone_validation(func):
     :type func: callable
     :return: The return value of the decorated function.
     :rtype: callable
-    """  # phone can only contain numbers and must be 10 charaters long
+    """
 
     @wraps(func)
     def inner(self, *args):
@@ -72,10 +71,10 @@ def input_error(func):
     return inner
 
 
-def parse_input(user_input: str) -> tuple[str, *tuple[str, ...]]:
+def parse_input(user_input: str):
     """parse_input Parses the user input and extracts the command and arguments.
     :param  user_input: The user input string.
-    :type args: tuple
+    :type user_input: tuple
     :return: A tuple containing the command and arguments.
     :rtype: tuple[str, *tuple[str, ...]]
     """
@@ -205,7 +204,7 @@ class AddressBook(UserDict):
 
 
 @input_error
-def add_contact(args: tuple, book: AddressBook) -> str:
+def add_contact(args: tuple, book: AddressBook):
     """add_contact This code defines a function called add_contact that takes two
     arguments: args and book. The function adds a new contact to the AddressBook object
 
@@ -229,13 +228,13 @@ def add_contact(args: tuple, book: AddressBook) -> str:
 
 
 @input_error
-def change_contact(args: tuple, book: AddressBook) -> str:
+def change_contact(args: tuple, book: AddressBook):
     """change_contact Change the contact phone number in the book record.
 
      :param args:  A tuple containing the name and new phone number.
      :type args: tuple
-     :param contacts: AddressBook object of contacts where the phone number will be updated.
-    :type contacts: AddressBook
+     :param book: AddressBook object of contacts where the phone number will be updated.
+    :type book: AddressBook
      :return: A success message indicating that the contact has been changed.
      :rtype: str
     """
@@ -246,7 +245,7 @@ def change_contact(args: tuple, book: AddressBook) -> str:
 
 
 @input_error
-def add_birthday(args, book: AddressBook) -> str:
+def add_birthday(args, book: AddressBook):
     """
     Adds a birthday for a contact in the address book.
 
@@ -260,7 +259,7 @@ def add_birthday(args, book: AddressBook) -> str:
 
 
 @input_error
-def show_birthday(args, book: AddressBook) -> str:
+def show_birthday(args, book: AddressBook):
     """
     Show birthday for the specified contact.
 
@@ -273,68 +272,47 @@ def show_birthday(args, book: AddressBook) -> str:
     else:
         return f"No birthday information found for {name}"
 
-
-def get_upcoming_birthdays(book: AddressBook) -> list[dict]:
-    """Get upcoming birthdays
-    :param book: AddressBook - the address book containing contact information.
-    :result: list[dict] - list of dictionaries of contacts that need to be congratulated
-    in the next 7 days including today (birthdays on weekends are moved to the next Monday)
+@staticmethod
+def find_next_weekday(d, weekday):
     """
-    today = datetime.now().date()
-    intermediate = []
+    Функція для знаходження наступного заданого дня тижня після заданої дати.
+    d: datetime.date - початкова дата.
+    weekday: int - день тижня від 0 (понеділок) до 6 (неділя).
+    """
+    days_ahead = weekday - d.weekday()
+    if days_ahead <= 0:  # Якщо день народження вже минув у цьому тижні.
+        days_ahead += 7
+    return d + timedelta(days_ahead)
 
-    def weekend_adjuster(congratulation_date: datetime) -> datetime:
-        """Weekend adjuster
-        :param congratulation_date: datetime - date on which colleague
-        receives congratulations
-        :result: datetime - congratulation date with adjustment
-        made for weekends (moved to nearest Monday)
-        Function checks if the congratulation date is a weekday or a weekend.
-        For weekends, date is moved to Monday, for weekdays,
-        date is returned without changes.
-        """
-        if congratulation_date.weekday() < 5:
-            return congratulation_date
-        elif congratulation_date.weekday() == 5:
-            return congratulation_date + timedelta(days=2)
-        else:
-            return congratulation_date + timedelta(days=1)
+def get_upcoming_birthdays(self, days=7) -> list:
+    today = datetime.today().date()
+    upcoming_birthdays = []
 
-    for value in book.values():
-        user = {"name": value.name.value, "birthday": value.birthday.value}
-        user["birthday"] = user["birthday"].date()
-        user["congratulation_date"] = user["birthday"].replace(year=today.year)
-        if user["congratulation_date"] < today:
-            if (
-                user["congratulation_date"] + relativedelta(years=1) - today
-            ) <= timedelta(days=6):
-                intermediate.append(
+    for user in self.data.values():
+        if user.birthday is None:
+            continue
+        birthday_this_year = user.birthday.date.replace(year=today.year)
+
+        if birthday_this_year < today:
+            birthday_this_year = birthday_this_year.replace(year=today.year + 1)
+
+        if 0 <= (birthday_this_year - today).days <= days:
+            if birthday_this_year.weekday() >= 5:  # субота або неділя
+                birthday_this_year = self.find_next_weekday(
+                    birthday_this_year, 0
+                    )  # Понеділок
+
+            congratulation_date_str = birthday_this_year.strftime("%Y.%m.%d")
+            upcoming_birthdays.append(
                     {
-                        "name": user["name"],
-                        "congratulation_date": weekend_adjuster(
-                            (user["congratulation_date"] + relativedelta(years=1))
-                        ),
+                        "name": user.name.value,
+                        "congratulation_date": congratulation_date_str,
                     }
                 )
-            # else do nothing
-        elif user["congratulation_date"] - today <= timedelta(days=6):
-            intermediate.append(
-                {
-                    "name": user["name"],
-                    "congratulation_date": weekend_adjuster(
-                        (user["congratulation_date"])
-                    ),
-                }
-            )
-    for user in intermediate.copy():
-        if user["congratulation_date"] - today > timedelta(days=6):
-            intermediate.remove(user)
-        elif today - user["congratulation_date"] < timedelta(days=-6):
-            intermediate.remove(user)
-        user["congratulation_date"] = user["congratulation_date"].strftime("%Y.%m.%d")
-    return intermediate
 
-def save_data(book: AddressBook, filename:str ="addressbook.pkl") -> None:
+    return upcoming_birthdays
+
+def save_data(book: AddressBook, filename:str ="addressbook.pkl"):
     """save_data Save data to a file using pickle serialization.
 
     :param book: The data to be saved.
@@ -345,7 +323,7 @@ def save_data(book: AddressBook, filename:str ="addressbook.pkl") -> None:
     with open(filename, "wb") as f:
         pickle.dump(book, f)
 
-def load_data(filename:str ="addressbook.pkl") -> AddressBook:
+def load_data(filename:str ="addressbook.pkl"):
     """load_data Load data from a file using pickle deserialization.
 
     :param filename: The name of the file to load from. Defaults to "addressbook.pkl".
@@ -382,7 +360,7 @@ def main():
                 user_interface.display_info(add_contact(args, book))
 
             case "change":
-                # cmd in format change name old phone new phone (otherwise there no certainty which number we change for contact)
+
                 user_interface.display_info(change_contact(args, book))
 
             case "phone":
